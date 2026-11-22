@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { parseRecord, readRecords, recordDateProblems, serializeRecord, writeRecord } from "./record.ts";
+import { artifactKey, parseRecord, readRecords, recordDateProblems, serializeRecord, writeRecord } from "./record.ts";
 
 const known = new Set(["themes", "utils"]);
 const valid = {
@@ -204,4 +204,11 @@ test("listing translations round-trip and reject invalid locales and fields", ()
   for (const translations of [{ "zh-cn": {} }, { en: {} }, { "zh-CN": { name: " " } }, { fr: { title: "Typo" } }, []]) {
     assert.throws(() => parseRecord({ ...valid, listing: { translations } }, known), /listing\./);
   }
+});
+
+test("SSH and HTTPS remotes of one repository share an artifact key", () => {
+  assert.equal(
+    artifactKey({ kind: "git", remote: "git@github.com:Acme/Plugin.git", pluginPath: "plugin" }),
+    artifactKey({ kind: "git", remote: "https://github.com/acme/plugin", pluginPath: "plugin" }),
+  );
 });

@@ -2,7 +2,7 @@ import { parseTranslations, type ListingTranslations } from "./translations.ts";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { githubOwner } from "./repository.ts";
+import { githubOwner, normalizeRepositoryUrl } from "./repository.ts";
 import { parseMedia } from "./media.ts";
 import { isRecordDate, isRecordTimestamp, RECORD_DATE_FORMAT, recordTime } from "./dates.ts";
 
@@ -211,7 +211,7 @@ export function artifactKey(
   artifact: { kind: "npm"; package: string } | { kind: "git"; remote: string; pluginPath?: string },
 ): string {
   if (artifact.kind === "npm") return `package "${artifact.package}"`;
-  const remote = artifact.remote.toLowerCase().replace(/\.git$/, "");
+  const remote = (normalizeRepositoryUrl(artifact.remote) ?? artifact.remote).toLowerCase().replace(/\.git$/, "");
   return `repository "${artifact.pluginPath ? `${remote}/${artifact.pluginPath}` : remote}"`;
 }
 
