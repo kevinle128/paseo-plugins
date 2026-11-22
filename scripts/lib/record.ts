@@ -2,7 +2,7 @@ import { parseTranslations, type ListingTranslations } from "./translations.ts";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { githubOwner } from "./repository.ts";
+import { githubOwner, normalizeRepositoryUrl } from "./repository.ts";
 import { parseMedia } from "./media.ts";
 import { isRecordDate, isRecordTimestamp, RECORD_DATE_FORMAT, recordTime } from "./dates.ts";
 
@@ -41,6 +41,8 @@ const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PACKAGE_PATTERN = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/;
 const INTEGRITY_PATTERN = /^sha512-[A-Za-z0-9+/]+=*$/;
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const GITHUB_HTTPS_REMOTE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/;
+const GITHUB_SSH_REMOTE = /^git@github\.com:[\w.-]+\/[\w.-]+(?:\.git)?$/;
 const RECORD_KEYS = [
   "id",
   "artifact",
@@ -209,7 +211,7 @@ export function artifactKey(
   artifact: { kind: "npm"; package: string } | { kind: "git"; remote: string; pluginPath?: string },
 ): string {
   if (artifact.kind === "npm") return `package "${artifact.package}"`;
-  const remote = artifact.remote.toLowerCase().replace(/\.git$/, "");
+  const remote = (normalizeRepositoryUrl(artifact.remote) ?? artifact.remote).toLowerCase().replace(/\.git$/, "");
   return `repository "${artifact.pluginPath ? `${remote}/${artifact.pluginPath}` : remote}"`;
 }
 
@@ -295,9 +297,9 @@ export function parseArtifact(raw: unknown): PluginArtifact {
   if (artifact.kind === "git") {
     if (
       typeof artifact.remote !== "string" ||
-      !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/.test(artifact.remote)
+      !(GITHUB_HTTPS_REMOTE.test(artifact.remote) || GITHUB_SSH_REMOTE.test(artifact.remote))
     )
-      throw new Error("artifact.remote must be a GitHub repository URL");
+      throw new Error("artifact.remote must be a GitHub repository URL or git@github.com:owner/repo.git");
     if (typeof artifact.commit !== "string" || !COMMIT_PATTERN.test(artifact.commit))
       throw new Error("artifact.commit must be a full SHA");
     if (artifact.tag !== undefined &&

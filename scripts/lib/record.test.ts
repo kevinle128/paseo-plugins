@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { parseRecord, readRecords, recordDateProblems, serializeRecord, writeRecord } from "./record.ts";
+import { artifactKey, parseRecord, readRecords, recordDateProblems, serializeRecord, writeRecord } from "./record.ts";
 
 const known = new Set(["themes", "utils"]);
 const valid = {
@@ -189,6 +189,12 @@ test("git pins round-trip and reject mutable or escaping artifacts", () => {
     () => parseRecord({ ...valid, artifact: { ...artifact, pluginPath: "../outside" } }, known),
     /relative directory/,
   );
+  const ssh = { ...artifact, remote: "git@github.com:acme/plugin.git", pluginPath: undefined };
+  assert.equal(parseRecord({ ...valid, artifact: ssh }, known).artifact.remote, ssh.remote);
+  assert.throws(
+    () => parseRecord({ ...valid, artifact: { ...artifact, remote: "git@gitlab.com:acme/plugin.git" } }, known),
+    /artifact\.remote/,
+  );
 });
 
 test("listing translations round-trip and reject invalid locales and fields", () => {
@@ -198,4 +204,11 @@ test("listing translations round-trip and reject invalid locales and fields", ()
   for (const translations of [{ "zh-cn": {} }, { en: {} }, { "zh-CN": { name: " " } }, { fr: { title: "Typo" } }, []]) {
     assert.throws(() => parseRecord({ ...valid, listing: { translations } }, known), /listing\./);
   }
+});
+
+test("SSH and HTTPS remotes of one repository share an artifact key", () => {
+  assert.equal(
+    artifactKey({ kind: "git", remote: "git@github.com:Acme/Plugin.git", pluginPath: "plugin" }),
+    artifactKey({ kind: "git", remote: "https://github.com/acme/plugin", pluginPath: "plugin" }),
+  );
 });

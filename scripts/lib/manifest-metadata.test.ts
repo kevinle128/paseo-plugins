@@ -11,6 +11,7 @@ import { createNpmClient } from "./npm.ts";
 import type { PluginRecord } from "./record.ts";
 import { AuthorError } from "./problems.ts";
 import { validateArtifact } from "./validate-artifact.ts";
+import { resolveMetadata } from "./metadata.ts";
 
 function fixture(t: TestContext, kind: "npm" | "git", manifest: unknown, listing?: PluginRecord["listing"], overviews: Record<string, string> = {}, links: string[] = []) {
   const root = mkdtempSync(join(tmpdir(), "registry-manifest-"));
@@ -250,3 +251,18 @@ for (const kind of ["npm", "git"] as const) {
     });
   }
 }
+
+test("relative assets of an SSH git remote resolve to HTTPS URLs", () => {
+  const commit = "a".repeat(40);
+  const record = {
+    id: "acme/ssh-plugin",
+    artifact: { kind: "git", remote: "git@github.com:acme/plugin.git", commit, pluginPath: "plugin" },
+  } as unknown as PluginRecord;
+  const metadata = resolveMetadata(
+    { manifest: JSON.stringify({ icon: "assets/icon.png", media: ["assets/demo.mp4"] }), overview: null },
+    record,
+  );
+  const base = `https://github.com/acme/plugin/raw/${commit}/plugin/`;
+  assert.equal(metadata.icon, `${base}assets/icon.png`);
+  assert.deepEqual(metadata.media, [`${base}assets/demo.mp4`]);
+});

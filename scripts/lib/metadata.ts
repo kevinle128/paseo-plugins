@@ -3,6 +3,7 @@ import type { ArtifactFiles } from "./artifact-files.ts";
 import { mediaKind } from "./media.ts";
 import { AuthorError } from "./problems.ts";
 import type { PluginRecord } from "./record.ts";
+import { normalizeRepositoryUrl } from "./repository.ts";
 
 export interface PluginMetadata {
   name: string;
@@ -19,7 +20,7 @@ export interface PluginMetadata {
 export function resolveMetadata(files: ArtifactFiles, record: PluginRecord, packageDescription?: string): PluginMetadata {
   const artifact = record.artifact;
   const base = artifact.kind === "git"
-    ? `${artifact.remote.replace(/\.git$/, "")}/raw/${artifact.commit}/${artifact.pluginPath ? `${encodePath(artifact.pluginPath)}/` : ""}`
+    ? `${normalizeRepositoryUrl(artifact.remote) ?? artifact.remote.replace(/\.git$/, "")}/raw/${artifact.commit}/${artifact.pluginPath ? `${encodePath(artifact.pluginPath)}/` : ""}`
     : `https://cdn.jsdelivr.net/npm/${artifact.package}@${artifact.version}/`;
   return readMetadata(files.manifest, record, base, packageDescription);
 }
