@@ -6,6 +6,7 @@ import { categorySlugs, readCategories } from "./lib/categories.ts";
 import { readFeatured } from "./lib/featured.ts";
 import { type PublishedIndex, resolvePlugin, summarize } from "./lib/listing.ts";
 import { createNpmClient } from "./lib/npm.ts";
+import { filterRecordsByOwners } from "./lib/owners.ts";
 import { readOverview, readOverviewTranslations } from "./lib/overview.ts";
 import { readRecords } from "./lib/record.ts";
 
@@ -13,8 +14,9 @@ requireCompletedSubmissions();
 
 const DIST = join(process.cwd(), "dist");
 const categories = readCategories();
-const records = readRecords(categorySlugs(categories));
-const featured = readFeatured(records);
+const allRecords = readRecords(categorySlugs(categories));
+const featured = readFeatured(allRecords);
+const records = filterRecordsByOwners(allRecords, process.env.REGISTRY_OWNERS);
 const client = createNpmClient();
 
 rmSync(DIST, { recursive: true, force: true });
@@ -66,7 +68,10 @@ for (const detail of details) {
 const publishedIds = new Set(details.map((detail) => detail.id));
 const index: PublishedIndex = {
   schemaVersion: 1,
-  registry: { name: "Paseo plugins", url: process.env.REGISTRY_URL ?? "https://plugins.paseo.sh" },
+  registry: {
+    name: process.env.REGISTRY_NAME ?? "Paseo plugins",
+    url: process.env.REGISTRY_URL ?? "https://plugins.paseo.sh",
+  },
   generatedAt: new Date().toISOString(),
   categories,
   featured: featured.filter((id) => publishedIds.has(id)),

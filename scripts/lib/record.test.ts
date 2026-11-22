@@ -189,6 +189,12 @@ test("git pins round-trip and reject mutable or escaping artifacts", () => {
     () => parseRecord({ ...valid, artifact: { ...artifact, pluginPath: "../outside" } }, known),
     /relative directory/,
   );
+  const ssh = { ...artifact, remote: "git@github.com:acme/plugin.git", pluginPath: undefined };
+  assert.equal(parseRecord({ ...valid, artifact: ssh }, known).artifact.remote, ssh.remote);
+  assert.throws(
+    () => parseRecord({ ...valid, artifact: { ...artifact, remote: "git@gitlab.com:acme/plugin.git" } }, known),
+    /artifact\.remote/,
+  );
 });
 
 test("listing translations round-trip and reject invalid locales and fields", () => {

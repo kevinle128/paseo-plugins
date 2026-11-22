@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -17,7 +20,26 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - name: Load Agent-Memory deploy key
+        env:
+          AGENT_MEMORY_DEPLOY_KEY: ${{ secrets.AGENT_MEMORY_DEPLOY_KEY }}
+        run: |
+          if [ -z "$AGENT_MEMORY_DEPLOY_KEY" ]; then
+            echo "AGENT_MEMORY_DEPLOY_KEY is unset; skipping deploy key"
+            exit 0
+          fi
+          key="$RUNNER_TEMP/agent-memory-deploy-key"
+          umask 077
+          printf '%s\n' "$AGENT_MEMORY_DEPLOY_KEY" > "$key"
+          chmod 0600 "$key"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+          echo "GIT_SSH_COMMAND=ssh -i ${key} -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
       - name: Check records
         run: >-
           node scripts/validate.ts --online
           ${{ github.event_name == 'pull_request' && '--changed' || '' }}
+      - name: Remove deploy key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/agent-memory-deploy-key"

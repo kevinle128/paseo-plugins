@@ -19,7 +19,9 @@ function withCheckout<T>(
   artifact: { remote: string; commit: string; pluginPath?: string; tag?: string },
   consume: (directory: string) => T,
 ): T {
-  const directory = mkdtempSync(join(tmpdir(), "paseo-registry-"));
+  // os.tmpdir() is a symlink on macOS (/var -> /private/var). Compare canonical paths
+  // so a checkout inside that directory is not reported as an escape.
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), "paseo-registry-")));
   try {
     run("git", [
       "clone",

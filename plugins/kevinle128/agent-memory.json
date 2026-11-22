@@ -1,0 +1,20 @@
+{
+  "id": "kevinle128/agent-memory",
+  "artifact": {
+    "kind": "git",
+    "remote": "git@github.com:kevinle128/paseo-agent-memory.git",
+    "commit": "4a7e997437425e90d53465d81821021ffae3462d",
+    "tag": "v0.1.0"
+  },
+  "repository": {
+    "url": "https://github.com/kevinle128/paseo-agent-memory",
+    "commit": "4a7e997437425e90d53465d81821021ffae3462d"
+  },
+  "categories": [
+    "utils"
+  ],
+  "submittedAt": "2026-11-22T14:59:54Z",
+  "submittedBy": "kevinle128",
+  "publishedAt": "2026-11-22T14:59:54Z",
+  "reviewedAt": "2026-11-22T14:59:54Z"
+}
