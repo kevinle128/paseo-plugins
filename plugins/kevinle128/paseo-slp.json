@@ -3,18 +3,18 @@
   "artifact": {
     "kind": "git",
     "remote": "https://github.com/kevinle128/paseo-slp-plugin.git",
-    "commit": "588ae7b8b17c1b3c20f190c9dc78a1f78146f527",
+    "commit": "5c142da962464b9f80a880df2f029cf015c71e21",
     "pluginPath": "plugin"
   },
   "repository": {
     "url": "https://github.com/kevinle128/paseo-slp-plugin",
-    "commit": "588ae7b8b17c1b3c20f190c9dc78a1f78146f527"
+    "commit": "5c142da962464b9f80a880df2f029cf015c71e21"
   },
   "categories": [
     "orchestration"
   ],
   "submittedAt": "2026-11-22T14:59:54Z",
   "submittedBy": "kevinle128",
-  "publishedAt": "2026-11-22T14:59:54Z",
+  "publishedAt": "2026-11-23T07:09:55Z",
   "reviewedAt": "2026-11-22T14:59:54Z"
 }
