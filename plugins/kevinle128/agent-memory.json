@@ -2,7 +2,7 @@
   "id": "kevinle128/agent-memory",
   "artifact": {
     "kind": "git",
-    "remote": "git@github.com:kevinle128/paseo-agent-memory.git",
+    "remote": "https://github.com/kevinle128/paseo-agent-memory.git",
     "commit": "4a7e997437425e90d53465d81821021ffae3462d",
     "tag": "v0.1.0"
   },
