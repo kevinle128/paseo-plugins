@@ -1,0 +1,114 @@
+name: Sync Plugins
+
+# Pins each fork plugin record to the newest commit on its default branch and triggers
+# publish.yml, so merges in source repos reach users without manual PRs here.
+# - agent-memory: full typecheck + test suite on a clean clone.
+# - paseo-slp: typecheck + identity check + plugin-payload check on a clean clone
+#   (full npm test is skipped because it takes several minutes and has host-specific tests).
+# - computer-use: manifest JSON + OVERVIEW.md check only; its devDependencies point to
+#   local ../paseo/packages/* so typecheck/test cannot run standalone. publish.yml
+#   (build.ts + 3-plugin/0-skipped gate) acts as the safety net.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: sync-plugin-${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - id: agent-memory
+            label: Agent-Memory
+            source: https://github.com/kevinle128/paseo-agent-memory.git
+            branch: master
+            record: plugins/kevinle128/agent-memory.json
+          - id: paseo-slp
+            label: Paseo SLP
+            source: https://github.com/kevinle128/paseo-slp-plugin.git
+            branch: main
+            record: plugins/kevinle128/paseo-slp.json
+          - id: computer-use
+            label: Computer Use
+            source: https://github.com/kevinle128/paseo-computer-use.git
+            branch: main
+            record: plugins/kevinle128/computer-use.json
+    env:
+      PLUGIN_ID: ${{ matrix.id }}
+      PLUGIN_LABEL: ${{ matrix.label }}
+      SOURCE: ${{ matrix.source }}
+      BRANCH: ${{ matrix.branch }}
+      RECORD: ${{ matrix.record }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find the newest commit on the default branch
+        id: head
+        run: |
+          sha=$(git ls-remote "$SOURCE" "refs/heads/$BRANCH" | cut -f1)
+          [ "${#sha}" -eq 40 ] || { echo "could not read $BRANCH of $SOURCE"; exit 1; }
+          current=$(jq -r .artifact.commit "$RECORD")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "changed=$([ "$sha" != "$current" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Verify the plugin at that commit
+        if: steps.head.outputs.changed == 'true'
+        env:
+          SHA: ${{ steps.head.outputs.sha }}
+        run: |
+          git clone --quiet "$SOURCE" "$RUNNER_TEMP/plugin"
+          cd "$RUNNER_TEMP/plugin"
+          git checkout --quiet "$SHA"
+          case "$PLUGIN_ID" in
+            agent-memory)
+              npm ci --ignore-scripts --no-audit --no-fund
+              npm run typecheck
+              npm test
+              ;;
+            paseo-slp)
+              npm ci --ignore-scripts --no-audit --no-fund
+              npm run typecheck
+              npm run check
+              npm run check:plugin-payload
+              ;;
+            computer-use)
+              # Cannot run typecheck/test without a sibling ../paseo checkout.
+              jq -e . paseo-plugin.json >/dev/null
+              test -s OVERVIEW.md
+              ;;
+            *)
+              echo "unknown plugin: $PLUGIN_ID"
+              exit 1
+              ;;
+          esac
+      - name: Pin the record and publish
+        if: steps.head.outputs.changed == 'true'
+        env:
+          SHA: ${{ steps.head.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq --arg c "$SHA" --arg t "$now" \
+            '.artifact.commit=$c | del(.artifact.tag) | .repository.commit=$c | .reviewedAt=$t' \
+            "$RECORD" > "$RUNNER_TEMP/record.json"
+          mv "$RUNNER_TEMP/record.json" "$RECORD"
+          node scripts/validate.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$RECORD"
+          git commit -m "chore: pin $PLUGIN_LABEL to ${SHA:0:7}"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # A push made with the workflow token does not start other workflows, so publish is started here.
+          gh workflow run publish.yml --ref main
