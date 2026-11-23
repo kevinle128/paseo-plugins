@@ -1,0 +1,66 @@
+name: Sync Agent-Memory
+
+# Pins the registry record to the newest master of paseo-agent-memory and publishes it,
+# so a merge there reaches users without a pull request here. The pin only moves when
+# typecheck and tests pass at that commit.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-agent-memory
+
+env:
+  SOURCE: https://github.com/kevinle128/paseo-agent-memory.git
+  RECORD: plugins/kevinle128/agent-memory.json
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find the newest master commit
+        id: head
+        run: |
+          sha=$(git ls-remote "$SOURCE" refs/heads/master | cut -f1)
+          [ "${#sha}" -eq 40 ] || { echo "could not read master of $SOURCE"; exit 1; }
+          current=$(jq -r .artifact.commit "$RECORD")
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "changed=$([ "$sha" != "$current" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Check that the plugin at that commit builds and passes its tests
+        if: steps.head.outputs.changed == 'true'
+        run: |
+          git clone --quiet "$SOURCE" "$RUNNER_TEMP/agent-memory"
+          cd "$RUNNER_TEMP/agent-memory"
+          git checkout --quiet "${{ steps.head.outputs.sha }}"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+      - name: Pin the record and publish
+        if: steps.head.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="${{ steps.head.outputs.sha }}"
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq --arg c "$sha" --arg t "$now" \
+            '.artifact.commit=$c | del(.artifact.tag) | .repository.commit=$c | .reviewedAt=$t' \
+            "$RECORD" > "$RUNNER_TEMP/record.json"
+          mv "$RUNNER_TEMP/record.json" "$RECORD"
+          node scripts/validate.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$RECORD"
+          git commit -m "chore: pin Agent-Memory to ${sha:0:7}"
+          git push origin HEAD:main
+          # A push made with the workflow token does not start other workflows, so publish is started here.
+          gh workflow run publish.yml --ref main
